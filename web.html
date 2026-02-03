@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chat</title>
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --panel:#111827;
+      --panel2:#0f172a;
+      --line:#1f2937;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --brand:#22c55e;
+      --user:#2563eb;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      height:100vh;
+      background:radial-gradient(1200px 800px at 50% 0%, rgba(34,197,94,.08), transparent 55%),
+                 radial-gradient(900px 700px at 10% 20%, rgba(37,99,235,.08), transparent 60%),
+                 var(--bg);
+      color:var(--text);
+      font: 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    }
+    .app{
+      height:100vh;
+      display:flex;
+      flex-direction:column;
+    }
+
+    /* 顶部栏（极简仿 ChatGPT） */
+    .topbar{
+      height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:sticky;
+      top:0;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(11,15,25,.9), rgba(11,15,25,.55));
+      border-bottom: 1px solid rgba(31,41,55,.6);
+      z-index:10;
+    }
+    .topbar-inner{
+      width:min(980px, 100%);
+      padding:0 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:700;
+      letter-spacing:.2px;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:999px;background:var(--brand);
+      box-shadow:0 0 18px rgba(34,197,94,.55);
+    }
+    .actions{
+      display:flex; gap:10px; align-items:center;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .pill{
+      border:1px solid rgba(31,41,55,.9);
+      background: rgba(17,24,39,.55);
+      padding:6px 10px;
+      border-radius:999px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .pill:hover{ border-color: rgba(34,197,94,.45); color:var(--text); }
+
+    /* 主区域 */
+    .main{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      overflow:hidden;
+    }
+    .container{
+      width:min(980px, 100%);
+      display:flex;
+      flex-direction:column;
+      padding:18px 16px 0;
+      gap:12px;
+      overflow:hidden;
+    }
+
+    /* 欢迎页 */
+    .welcome{
+      margin-top:8vh;
+      text-align:center;
+      color:var(--text);
+      opacity:.95;
+    }
+    .welcome h1{
+      font-size:38px;
+      margin:0 0 10px;
+      font-weight:750;
+      letter-spacing:-.6px;
+    }
+    .welcome p{
+      margin:0;
+      color:var(--muted);
+    }
+
+    /* 聊天区域 */
+    #chat{
+      flex:1;
+      overflow:auto;
+      padding:6px 0 120px; /* 留出底部输入区空间 */
+      scroll-behavior:smooth;
+    }
+
+    .row{
+      display:flex;
+      gap:12px;
+      padding:14px 12px;
+      border:1px solid transparent;
+      border-radius:14px;
+    }
+    .row:hover{
+      border-color: rgba(31,41,55,.55);
+      background: rgba(17,24,39,.25);
+    }
+    .avatar{
+      width:34px;height:34px;border-radius:999px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;
+      flex:0 0 auto;
+    }
+    .avatar.user{ background: rgba(37,99,235,.25); border:1px solid rgba(37,99,235,.45); color:#cfe0ff;}
+    .avatar.ai{ background: rgba(34,197,94,.20); border:1px solid rgba(34,197,94,.45); color:#d8ffe8;}
+
+    .bubble{
+      flex:1;
+      min-width:0;
+    }
+    .role{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .role .name{ color:var(--text); font-weight:650; }
+    .content{
+      white-space:pre-wrap;
+      word-wrap:break-word;
+      font-size:14px;
+    }
+
+    .thinking{
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .dot3{
+      width:6px;height:6px;border-radius:50%;
+      background:rgba(156,163,175,.7);
+      animation:b 1.2s infinite ease-in-out;
+    }
+    .dot3:nth-child(2){animation-delay:.15s}
+    .dot3:nth-child(3){animation-delay:.3s}
+    @keyframes b{ 0%,80%,100%{transform:scale(.7);opacity:.45} 40%{transform:scale(1);opacity:1}}
+
+    /* 输入区（仿 ChatGPT 粘底） */
+    .composer-wrap{
+      position:sticky;
+      bottom:0;
+      padding: 14px 0 18px;
+      background: linear-gradient(to top, rgba(11,15,25,.95) 65%, rgba(11,15,25,0));
+      z-index: 9;
+    }
+    .composer{
+      background: rgba(17,24,39,.75);
+      border:1px solid rgba(31,41,55,.85);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 10px;
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+    }
+    textarea{
+      flex:1;
+      resize:none;
+      border:0;
+      outline:0;
+      background: transparent;
+      color:var(--text);
+      font-size:14px;
+      line-height:1.5;
+      padding: 10px 10px;
+      min-height: 44px;
+      max-height: 180px;
+    }
+    .btn{
+      height:44px;
+      width:44px;
+      border-radius: 14px;
+      border:1px solid rgba(31,41,55,.85);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:0 0 auto;
+    }
+    .btn:hover{ border-color: rgba(34,197,94,.45); }
+    .btn.send{
+      background: rgba(34,197,94,.95);
+      border-color: rgba(34,197,94,.95);
+      color:#06210f;
+      font-weight:800;
+    }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      text-align:center;
+    }
+    a{color:#93c5fd}
+  </style>
+</head>
+
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="dot"></span><span>Chat</span></div>
+      <div class="actions">
+        <div class="pill" id="apiPill" title="当前 API 地址（仅显示）"></div>
+        <div class="pill" onclick="clearChat()">清空对话</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="container">
+      <div class="welcome" id="welcome">
+        <h1>今天想聊点什么？</h1>
+        <p>前端仿 ChatGPT · 后端 Vercel → GLM-4.7（Key 不暴露）</p>
+      </div>
+
+      <div id="chat"></div>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea id="input" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="btn send" id="sendBtn" onclick="send()" title="发送">
+            ➤
+          </button>
+        </div>
+        <div class="hint" id="hint">提示：不要在这里粘贴你的 API Key。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ✅ 你的 Vercel API
+  const API_URL = "https://glm-vercel-api.vercel.app/api/chat";
+  document.getElementById("apiPill").textContent = "API: " + API_URL.replace("https://","");
+
+  const chatEl = document.getElementById("chat");
+  const inputEl = document.getElementById("input");
+  const sendBtn = document.getElementById("sendBtn");
+  const welcomeEl = document.getElementById("welcome");
+
+  // 多轮对话：累积发送
+  const messages = [];
+
+  function showWelcome(show){ welcomeEl.style.display = show ? "block":"none"; }
+
+  function addRow(role, content, isThinking=false) {
+    showWelcome(false);
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const av = document.createElement("div");
+    av.className = "avatar " + (role === "user" ? "user" : "ai");
+    av.textContent = role === "user" ? "你" : "AI";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+
+    const meta = document.createElement("div");
+    meta.className = "role";
+    meta.innerHTML = `<span class="name">${role === "user" ? "你" : "GLM-4.7"}</span>`;
+
+    const body = document.createElement("div");
+    body.className = "content";
+
+    if (isThinking) {
+      body.innerHTML = `<span class="thinking">思考中 <span class="dot3"></span><span class="dot3"></span><span class="dot3"></span></span>`;
+    } else {
+      body.textContent = content;
+    }
+
+    bubble.appendChild(meta);
+    bubble.appendChild(body);
+
+    row.appendChild(av);
+    row.appendChild(bubble);
+    chatEl.appendChild(row);
+
+    chatEl.scrollTop = chatEl.scrollHeight;
+    return { row, body };
+  }
+
+  function setBusy(busy){
+    sendBtn.disabled = busy;
+    inputEl.disabled = busy;
+  }
+
+  function autosize(){
+    inputEl.style.height = "44px";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + "px";
+  }
+
+  inputEl.addEventListener("input", autosize);
+
+  // Enter 发送；Shift+Enter 换行
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+
+  async function send(){
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    inputEl.value = "";
+    autosize();
+
+    addRow("user", text);
+    messages.push({ role:"user", content:text });
+
+    setBusy(true);
+    const thinking = addRow("assistant", "", true);
+
+    try{
+      const res = await fetch(API_URL, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ messages })
+      });
+
+      const data = await res.json();
+      const reply = data?.choices?.[0]?.message?.content;
+
+      if (!reply) throw new Error("未拿到模型回复（choices[0].message.content 为空）");
+
+      // 替换思考中为真实内容
+      thinking.body.textContent = reply;
+      messages.push({ role:"assistant", content: reply });
+
+    }catch(err){
+      thinking.body.textContent = "出错了：\n" + (err?.message || String(err));
+    }finally{
+      setBusy(false);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+  }
+
+  function clearChat(){
+    chatEl.innerHTML = "";
+    messages.length = 0;
+    showWelcome(true);
+  }
+
+  // 初始：放一句欢迎
+  showWelcome(true);
+</script>
+</body>
+</html>
